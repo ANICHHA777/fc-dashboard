@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FC Dashboard</title>
+<style>
+:root {
+  --bg:       #0a0a0f;
+  --bg2:      #111118;
+  --bg3:      #1a1a24;
+  --border:   rgba(255,255,255,0.07);
+  --border2:  rgba(255,180,50,0.25);
+  --orange:   #f5a623;
+  --gold:     #ffd060;
+  --white:    #f0f0f8;
+  --dim:      #6b6b80;
+  --green:    #4ade80;
+  --red:      #f87171;
+  --blue:     #60a5fa;
+  --purple:   #a78bfa;
+  --radius:   16px;
+  --radius-sm:8px;
+  --shadow:   0 8px 32px rgba(0,0,0,0.5);
+  --glow:     0 0 40px rgba(245,166,35,0.12);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--white); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif; overflow: hidden; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* ── Layout ── */
+#app { display: flex; height: 100vh; }
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 220px; min-width: 220px;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  padding: 0;
+  position: relative;
+  z-index: 10;
+}
+.sidebar-logo {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo .logo-text {
+  font-size: 18px; font-weight: 700; letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--orange), var(--gold));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.sidebar-logo .logo-sub { font-size: 11px; color: var(--dim); margin-top: 2px; }
+
+.sidebar-section { padding: 16px 12px 8px; font-size: 10px; font-weight: 600; letter-spacing: 1.2px; color: var(--dim); text-transform: uppercase; }
+
+.sidebar-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; margin: 2px 8px;
+  border-radius: var(--radius-sm); cursor: pointer;
+  font-size: 13px; color: var(--dim);
+  transition: all 0.15s; user-select: none;
+}
+.sidebar-item:hover { background: rgba(255,255,255,0.05); color: var(--white); }
+.sidebar-item.active { background: rgba(245,166,35,0.12); color: var(--orange); }
+.sidebar-item .icon { font-size: 15px; width: 20px; text-align: center; }
+
+.sidebar-projects { flex: 1; overflow-y: auto; padding-bottom: 12px; }
+.sidebar-project-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px; margin: 1px 8px;
+  border-radius: var(--radius-sm); cursor: pointer;
+  font-size: 12px; color: var(--dim);
+  transition: all 0.15s; user-select: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sidebar-project-item:hover { background: rgba(255,255,255,0.05); color: var(--white); }
+.sidebar-project-item.active { background: rgba(245,166,35,0.08); color: var(--orange); }
+
+.sidebar-bottom {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+.btn-new-project {
+  width: 100%; padding: 10px;
+  background: linear-gradient(135deg, var(--orange), #e8820a);
+  border: none; border-radius: var(--radius-sm);
+  color: #000; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.btn-new-project:hover { opacity: 0.9; }
+
+/* ── Main ── */
+#main {
+  flex: 1; overflow-y: auto;
+  padding: 28px 32px;
+  background: var(--bg);
+}
+
+/* ── Topbar ── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 28px;
+}
+.topbar h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+.topbar h1 span { color: var(--orange); }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.badge-live {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 20px;
+  background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.2);
+  font-size: 11px; color: var(--green); font-weight: 600;
+}
+.badge-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.search-box {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 14px;
+  font-size: 13px; color: var(--dim);
+}
+.search-box input {
+  background: none; border: none; outline: none;
+  color: var(--white); font-size: 13px; width: 180px;
+}
+.search-box input::placeholder { color: var(--dim); }
+
+/* ── Project Grid ── */
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.project-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.project-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, transparent 60%, rgba(245,166,35,0.04));
+  pointer-events: none;
+}
+.project-card:hover {
+  border-color: var(--border2);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow), var(--glow);
+}
+.card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+.card-emoji { font-size: 28px; line-height: 1; }
+.card-git { display: flex; align-items: center; gap: 5px; font-size: 11px; }
+.git-dot { width: 6px; height: 6px; border-radius: 50%; }
+.git-clean { background: var(--green); }
+.git-dirty { background: var(--orange); }
+.git-none  { background: var(--dim); }
+.card-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-path { font-size: 11px; color: var(--dim); margin-bottom: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-stats { display: flex; gap: 16px; }
+.stat { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--dim); }
+.card-actions {
+  display: flex; gap: 6px; margin-top: 16px;
+  padding-top: 14px; border-top: 1px solid var(--border);
+}
+.btn-action {
+  flex: 1; padding: 7px 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 8px; cursor: pointer;
+  font-size: 11px; color: var(--dim);
+  transition: all 0.15s; text-align: center;
+  white-space: nowrap;
+}
+.btn-action:hover { background: rgba(245,166,35,0.1); border-color: var(--border2); color: var(--orange); }
+.btn-action.claude { border-color: rgba(245,166,35,0.3); color: var(--orange); }
+.btn-action.claude:hover { background: rgba(245,166,35,0.15); }
+
+/* ── Project Detail ── */
+.detail-header {
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 24px;
+}
+.back-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); cursor: pointer;
+  font-size: 13px; color: var(--dim); transition: all 0.15s;
+}
+.back-btn:hover { color: var(--white); }
+.detail-emoji { font-size: 36px; }
+.detail-title { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+.detail-sub { font-size: 12px; color: var(--dim); margin-top: 2px; }
+.detail-actions { display: flex; gap: 8px; margin-left: auto; }
+.btn-primary {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 16px;
+  background: linear-gradient(135deg, var(--orange), #e8820a);
+  border: none; border-radius: var(--radius-sm);
+  color: #000; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.15s;
+}
+.btn-primary:hover { opacity: 0.85; }
+.btn-secondary {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 14px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--dim); font-size: 13px;
+  cursor: pointer; transition: all 0.15s;
+}
+.btn-secondary:hover { color: var(--white); border-color: rgba(255,255,255,0.15); }
+
+/* ── Tabs ── */
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+.tab {
+  padding: 10px 18px; font-size: 13px; font-weight: 500;
+  color: var(--dim); cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s; margin-bottom: -1px;
+}
+.tab:hover { color: var(--white); }
+.tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+
+/* ── Tab content ── */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── Links ── */
+.links-input-row {
+  display: flex; gap: 8px; margin-bottom: 16px;
+}
+.input-field {
+  flex: 1; padding: 10px 14px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--white);
+  font-size: 13px; outline: none;
+  transition: border-color 0.15s;
+}
+.input-field:focus { border-color: var(--border2); }
+.input-field::placeholder { color: var(--dim); }
+.btn-add {
+  padding: 10px 18px;
+  background: rgba(245,166,35,0.15); border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); color: var(--orange);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s; white-space: nowrap;
+}
+.btn-add:hover { background: rgba(245,166,35,0.25); }
+
+.links-list { display: flex; flex-direction: column; gap: 8px; }
+.link-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s;
+}
+.link-item:hover { border-color: var(--border2); }
+.link-favicon { width: 16px; height: 16px; border-radius: 3px; object-fit: contain; flex-shrink: 0; }
+.link-title { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.link-url { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.link-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.link-btn {
+  padding: 5px 10px; background: transparent; border: 1px solid var(--border);
+  border-radius: 6px; font-size: 11px; color: var(--dim); cursor: pointer;
+  transition: all 0.15s;
+}
+.link-btn:hover { color: var(--orange); border-color: var(--border2); }
+.link-btn.del:hover { color: var(--red); border-color: rgba(248,113,113,0.3); }
+
+/* ── Image Generator ── */
+.img-gen-form { margin-bottom: 20px; }
+.img-prompt-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.img-options { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.img-option-btn {
+  padding: 6px 14px; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 20px; font-size: 12px; color: var(--dim); cursor: pointer;
+  transition: all 0.15s;
+}
+.img-option-btn:hover, .img-option-btn.active { background: rgba(245,166,35,0.1); border-color: var(--border2); color: var(--orange); }
+.images-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.img-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  transition: all 0.2s;
+}
+.img-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+.img-card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--bg3); }
+.img-card-footer { padding: 10px 12px; }
+.img-card-prompt { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.img-card-btns { display: flex; gap: 6px; margin-top: 8px; }
+.img-loading {
+  aspect-ratio: 1; background: var(--bg3); border-radius: var(--radius);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  font-size: 12px; color: var(--dim);
+}
+.spinner { width: 28px; height: 28px; border: 2px solid var(--border); border-top-color: var(--orange); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Files ── */
+.files-list { display: flex; flex-direction: column; gap: 4px; }
+.file-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; border-radius: var(--radius-sm);
+  font-size: 13px; color: var(--dim);
+  background: var(--bg2); border: 1px solid var(--border);
+}
+.file-icon { font-size: 14px; width: 20px; text-align: center; }
+
+/* ── Notes ── */
+.notes-area {
+  width: 100%; min-height: 200px; padding: 16px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--white);
+  font-size: 14px; font-family: inherit; resize: vertical; outline: none;
+  line-height: 1.6; transition: border-color 0.15s;
+}
+.notes-area:focus { border-color: var(--border2); }
+.notes-save-row { display: flex; justify-content: flex-end; margin-top: 8px; }
+
+/* ── Git panel ── */
+.git-panel {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
+}
+.git-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
+.git-row:last-child { margin-bottom: 0; }
+.git-label { color: var(--dim); width: 90px; flex-shrink: 0; }
+.git-value { color: var(--white); font-family: monospace; }
+.git-badge {
+  padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+}
+.git-badge.clean { background: rgba(74,222,128,0.1); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
+.git-badge.dirty { background: rgba(245,166,35,0.1); color: var(--orange); border: 1px solid rgba(245,166,35,0.2); }
+.git-badge.nogit { background: rgba(107,107,128,0.1); color: var(--dim); border: 1px solid var(--border); }
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 20px; padding: 28px; width: 440px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+  transform: translateY(20px);
+  transition: transform 0.2s;
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+.modal p { font-size: 13px; color: var(--dim); margin-bottom: 20px; }
+.modal-field { margin-bottom: 14px; }
+.modal-field label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 6px; font-weight: 500; }
+.emoji-picker { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.emoji-opt {
+  width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center; font-size: 20px;
+  cursor: pointer; transition: all 0.15s; background: var(--bg3);
+}
+.emoji-opt:hover, .emoji-opt.active { border-color: var(--border2); background: rgba(245,166,35,0.1); }
+.modal-btns { display: flex; gap: 8px; margin-top: 20px; }
+.modal-btns .btn-primary { flex: 1; justify-content: center; }
+.modal-btns .btn-cancel {
+  padding: 9px 18px; background: transparent; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--dim); font-size: 13px; cursor: pointer;
+  transition: all 0.15s;
+}
+.modal-btns .btn-cancel:hover { color: var(--white); }
+
+/* ── Empty state ── */
+.empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 60px 20px; text-align: center;
+}
+.empty-icon { font-size: 48px; margin-bottom: 16px; }
+.empty h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+.empty p { font-size: 13px; color: var(--dim); max-width: 280px; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  padding: 12px 18px; border-radius: var(--radius-sm);
+  background: var(--bg3); border: 1px solid var(--border);
+  font-size: 13px; color: var(--white);
+  box-shadow: var(--shadow);
+  transform: translateY(80px); opacity: 0;
+  transition: all 0.3s; z-index: 200;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-color: rgba(74,222,128,0.3); color: var(--green); }
+.toast.error   { border-color: rgba(248,113,113,0.3); color: var(--red); }
+
+/* ── Animations ── */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.anim { animation: fadeIn 0.25s ease both; }
+.anim-1 { animation-delay: 0.05s; }
+.anim-2 { animation-delay: 0.10s; }
+.anim-3 { animation-delay: 0.15s; }
+
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.section-title { font-size: 15px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-text">FC Dashboard</div>
+      <div class="logo-sub">FreeClaude · Kiro AI</div>
+    </div>
+
+    <div class="sidebar-section">Навигация</div>
+    <div class="sidebar-item active" id="nav-home" onclick="showHome()">
+      <span class="icon">⊞</span> Все проекты
+    </div>
+    <div class="sidebar-item" id="nav-images" onclick="showGlobalImages()">
+      <span class="icon">🎨</span> Генератор картинок
+    </div>
+
+    <div class="sidebar-section">Проекты</div>
+    <div class="sidebar-projects" id="sidebar-projects"></div>
+
+    <div class="sidebar-bottom">
+      <button class="btn-new-project" onclick="openModal()">
+        <span>＋</span> Новый проект
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main id="main">
+    <!-- Home view -->
+    <div id="view-home">
+      <div class="topbar anim">
+        <h1>Мои <span>Проекты</span></h1>
+        <div class="topbar-right">
+          <div class="badge-live">Live</div>
+          <div class="search-box">
+            <span>🔍</span>
+            <input id="search-input" placeholder="Поиск..." oninput="filterProjects()">
+          </div>
+        </div>
+      </div>
+      <div class="projects-grid anim anim-1" id="projects-grid"></div>
+    </div>
+
+    <!-- Project detail -->
+    <div id="view-detail" style="display:none">
+      <div class="detail-header anim">
+        <div class="back-btn" onclick="showHome()">← Назад</div>
+        <div class="detail-emoji" id="detail-emoji">📁</div>
+        <div>
+          <div class="detail-title" id="detail-name">Project</div>
+          <div class="detail-sub" id="detail-path"></div>
+        </div>
+        <div class="detail-actions">
+          <button class="btn-secondary" onclick="openFinder()">📁 Finder</button>
+          <button class="btn-secondary" onclick="openVSCode()">💻 VS Code</button>
+          <button class="btn-primary" onclick="openClaude()">✦ Открыть в Claude</button>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('links')">🔗 Ссылки</div>
+        <div class="tab" onclick="switchTab('images')">🎨 Картинки</div>
+        <div class="tab" onclick="switchTab('files')">📂 Файлы</div>
+        <div class="tab" onclick="switchTab('notes')">📝 Заметки</div>
+        <div class="tab" onclick="switchTab('git')">⎇ Git</div>
+      </div>
+
+      <!-- Links tab -->
+      <div class="tab-content active" id="tab-links">
+        <div class="links-input-row">
+          <input class="input-field" id="link-url" placeholder="https://..." onkeydown="if(event.key==='Enter')addLink()">
+          <input class="input-field" id="link-title" placeholder="Название (опционально)" style="max-width:200px" onkeydown="if(event.key==='Enter')addLink()">
+          <button class="btn-add" onclick="addLink()">+ Добавить</button>
+        </div>
+        <div class="links-list" id="links-list"></div>
+      </div>
+
+      <!-- Images tab -->
+      <div class="tab-content" id="tab-images">
+        <div class="img-gen-form">
+          <div class="img-prompt-row">
+            <input class="input-field" id="img-prompt" placeholder="Опишите картинку на английском..." onkeydown="if(event.key==='Enter')generateImage()">
+            <button class="btn-add" onclick="generateImage()">✦ Создать</button>
+          </div>
+          <div class="img-options">
+            <span style="font-size:12px;color:var(--dim);align-self:center">Стиль:</span>
+            <div class="img-option-btn active" onclick="setStyle(this,'')">Авто</div>
+            <div class="img-option-btn" onclick="setStyle(this,'photorealistic')">Фото</div>
+            <div class="img-option-btn" onclick="setStyle(this,'digital art')">Digital Art</div>
+            <div class="img-option-btn" onclick="setStyle(this,'oil painting')">Масло</div>
+            <div class="img-option-btn" onclick="setStyle(this,'minimalist')">Минимализм</div>
+            <div class="img-option-btn" onclick="setStyle(this,'cyberpunk')">Cyberpunk</div>
+            <div class="img-option-btn" onclick="setStyle(this,'watercolor')">Акварель</div>
+          </div>
+        </div>
+        <div class="images-grid" id="images-grid"></div>
+      </div>
+
+      <!-- Files tab -->
+      <div class="tab-content" id="tab-files">
+        <div class="files-list" id="files-list"></div>
+      </div>
+
+      <!-- Notes tab -->
+      <div class="tab-content" id="tab-notes">
+        <textarea class="notes-area" id="notes-area" placeholder="Заметки по проекту..."></textarea>
+        <div class="notes-save-row">
+          <button class="btn-primary" onclick="saveNotes()">💾 Сохранить</button>
+        </div>
+      </div>
+
+      <!-- Git tab -->
+      <div class="tab-content" id="tab-git">
+        <div class="git-panel" id="git-panel"></div>
+      </div>
+    </div>
+
+    <!-- Global images view -->
+    <div id="view-images" style="display:none">
+      <div class="topbar anim">
+        <h1>🎨 Генератор <span>Картинок</span></h1>
+      </div>
+      <div class="img-gen-form anim">
+        <div class="img-prompt-row">
+          <input class="input-field" id="global-img-prompt" placeholder="Опишите картинку на английском..." onkeydown="if(event.key==='Enter')generateGlobalImage()">
+          <button class="btn-add" onclick="generateGlobalImage()">✦ Создать</button>
+        </div>
+        <div class="img-options">
+          <span style="font-size:12px;color:var(--dim);align-self:center">Стиль:</span>
+          <div class="img-option-btn active" onclick="setGlobalStyle(this,'')">Авто</div>
+          <div class="img-option-btn" onclick="setGlobalStyle(this,'photorealistic')">Фото</div>
+          <div class="img-option-btn" onclick="setGlobalStyle(this,'digital art')">Digital Art</div>
+          <div class="img-option-btn" onclick="setGlobalStyle(this,'oil painting')">Масло</div>
+          <div class="img-option-btn" onclick="setGlobalStyle(this,'minimalist')">Минимализм</div>
+          <div class="img-option-btn" onclick="setGlobalStyle(this,'cyberpunk')">Cyberpunk</div>
+          <div class="img-option-btn" onclick="setGlobalStyle(this,'watercolor')">Акварель</div>
+        </div>
+      </div>
+      <div class="images-grid anim anim-1" id="global-images-grid"></div>
+    </div>
+  </main>
+</div>
+
+<!-- New project modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>🚀 Новый проект</h2>
+    <p>Папка будет создана на рабочем столе</p>
+    <div class="modal-field">
+      <label>Название проекта</label>
+      <input class="input-field" id="proj-name" placeholder="my-awesome-project" onkeydown="if(event.key==='Enter')createProject()">
+    </div>
+    <div class="modal-field">
+      <label>Иконка</label>
+      <div class="emoji-picker" id="emoji-picker"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Отмена</button>
+      <button class="btn-primary" onclick="createProject()">✦ Создать</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://localhost:19999/api';
+const EMOJIS = ['📁','🚀','⚡','🔥','💎','🎯','🛠','🌟','🎨','🤖','🧠','📊','🌐','💡','🔬','🎮','🏗','📱','🎵','🦋'];
+
+let state = {
+  projects: [],
+  currentProject: null,
+  imgStyle: '',
+  globalImgStyle: '',
+  projectImages: {},   // projectId -> [{prompt, url, seed}]
+  globalImages: [],
+  currentTab: 'links',
+};
+
+// ── Utils ──────────────────────────────────────────────────────
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show ${type}`;
+  setTimeout(() => el.className = 'toast', 2500);
+}
+
+function fileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  const map = { js:'🟨', ts:'🔷', py:'🐍', html:'🌐', css:'🎨', json:'📋', md:'📝', sh:'⚡', png:'🖼', jpg:'🖼', jpeg:'🖼', gif:'🖼', svg:'🖼', pdf:'📄', zip:'📦', txt:'📄', env:'🔐', git:' ' };
+  return map[ext] || '📄';
+}
+
+function getFavicon(url) {
+  try { return `https://www.google.com/s2/favicons?sz=32&domain=${new URL(url).hostname}`; }
+  catch { return ''; }
+}
+
+function slugify(s) {
+  return s.trim().toLowerCase().replace(/[^a-z0-9а-яё\-_]/gi, '-').replace(/-+/g, '-');
+}
+
+// ── API calls ──────────────────────────────────────────────────
+async function api(method, path, data) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (data) opts.body = JSON.stringify(data);
+  const r = await fetch(API + path, opts);
+  return r.json();
+}
+
+// ── Load projects ──────────────────────────────────────────────
+async function loadProjects() {
+  state.projects = await api('GET', '/projects');
+  renderSidebar();
+  renderGrid();
+}
+
+// ── Sidebar ────────────────────────────────────────────────────
+function renderSidebar() {
+  const el = document.getElementById('sidebar-projects');
+  el.innerHTML = state.projects.map(p => `
+    <div class="sidebar-project-item ${state.currentProject?.id === p.id ? 'active' : ''}"
+         onclick="openProject('${p.id}')">
+      <span>${p.emoji || '📁'}</span>
+      <span style="overflow:hidden;text-overflow:ellipsis">${p.name}</span>
+    </div>`).join('');
+}
+
+// ── Home grid ──────────────────────────────────────────────────
+function renderGrid(list) {
+  const projects = list || state.projects;
+  const grid = document.getElementById('projects-grid');
+  if (!projects.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">
+      <div class="empty-icon">🚀</div>
+      <h3>Нет проектов</h3>
+      <p>Создай первый проект и он появится здесь</p>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = projects.map((p, i) => {
+    const gitDot = p.git?.branch
+      ? (p.git.dirty ? 'git-dirty' : 'git-clean')
+      : 'git-none';
+    const gitLabel = p.git?.branch
+      ? (p.git.dirty ? '● Изменения' : '✓ Чисто')
+      : 'No git';
+    return `
+    <div class="project-card anim" style="animation-delay:${i*0.04}s" onclick="openProject('${p.id}')">
+      <div class="card-header">
+        <div class="card-emoji">${p.emoji || '📁'}</div>
+        <div class="card-git">
+          <div class="git-dot ${gitDot}"></div>
+          <span style="color:var(--dim);font-size:11px">${gitLabel}</span>
+        </div>
+      </div>
+      <div class="card-name">${p.name}</div>
+      <div class="card-path">${p.path}</div>
+      <div class="card-stats">
+        <div class="stat">📄 ${p.files} файлов</div>
+        <div class="stat">🔗 ${p.links?.length || 0} ссылок</div>
+        ${p.git?.branch ? `<div class="stat">⎇ ${p.git.branch}</div>` : ''}
+      </div>
+      <div class="card-actions" onclick="event.stopPropagation()">
+        <div class="btn-action claude" onclick="claudeProject('${p.path}')">✦ Claude</div>
+        <div class="btn-action" onclick="finderProject('${p.path}')">📁</div>
+        <div class="btn-action" onclick="openProject('${p.id}')">→ Открыть</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterProjects() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  renderGrid(q ? state.projects.filter(p => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)) : state.projects);
+}
+
+// ── Views ──────────────────────────────────────────────────────
+function showHome() {
+  document.getElementById('view-home').style.display = '';
+  document.getElementById('view-detail').style.display = 'none';
+  document.getElementById('view-images').style.display = 'none';
+  document.getElementById('nav-home').classList.add('active');
+  document.getElementById('nav-images').classList.remove('active');
+  state.currentProject = null;
+  renderSidebar();
+  loadProjects();
+}
+
+function showGlobalImages() {
+  document.getElementById('view-home').style.display = 'none';
+  document.getElementById('view-detail').style.display = 'none';
+  document.getElementById('view-images').style.display = '';
+  document.getElementById('nav-home').classList.remove('active');
+  document.getElementById('nav-images').classList.add('active');
+  renderGlobalImages();
+}
+
+// ── Project detail ─────────────────────────────────────────────
+async function openProject(id) {
+  const p = await api('GET', `/projects/${encodeURIComponent(id)}`);
+  state.currentProject = p;
+
+  document.getElementById('view-home').style.display = 'none';
+  document.getElementById('view-detail').style.display = '';
+  document.getElementById('view-images').style.display = 'none';
+  document.getElementById('nav-home').classList.remove('active');
+  document.getElementById('nav-images').classList.remove('active');
+
+  document.getElementById('detail-emoji').textContent = p.emoji || '📁';
+  document.getElementById('detail-name').textContent = p.name;
+  document.getElementById('detail-path').textContent = p.path;
+
+  renderSidebar();
+  switchTab(state.currentTab);
+}
+
+function switchTab(tab) {
+  state.currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === ['links','images','files','notes','git'].indexOf(tab)));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+
+  const p = state.currentProject;
+  if (!p) return;
+  if (tab === 'links')  renderLinks(p);
+  if (tab === 'images') renderProjectImages(p.id);
+  if (tab === 'files')  renderFiles(p);
+  if (tab === 'notes')  { document.getElementById('notes-area').value = p.notes || ''; }
+  if (tab === 'git')    renderGit(p);
+}
+
+// ── Links ──────────────────────────────────────────────────────
+function renderLinks(p) {
+  const list = document.getElementById('links-list');
+  if (!p.links?.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">🔗</div><h3>Нет ссылок</h3><p>Добавь первую ссылку</p></div>`;
+    return;
+  }
+  list.innerHTML = p.links.map(l => `
+    <div class="link-item">
+      <img class="link-favicon" src="${getFavicon(l.url)}" onerror="this.style.display='none'">
+      <div style="flex:1;min-width:0">
+        <div class="link-title">${l.title}</div>
+        <div class="link-url">${l.url}</div>
+      </div>
+      <div class="link-btns">
+        <button class="link-btn" onclick="openLink('${encodeURIComponent(l.url)}')">🌐 Открыть</button>
+        <button class="link-btn del" onclick="deleteLink('${l.id}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+async function addLink() {
+  const url = document.getElementById('link-url').value.trim();
+  const title = document.getElementById('link-title').value.trim();
+  if (!url) return;
+  const p = state.currentProject;
+  const link = await api('POST', `/projects/${encodeURIComponent(p.id)}/links`, { url, title: title || url });
+  p.links = [...(p.links || []), link];
+  document.getElementById('link-url').value = '';
+  document.getElementById('link-title').value = '';
+  renderLinks(p);
+  toast('Ссылка добавлена', 'success');
+}
+
+async function deleteLink(lid) {
+  const p = state.currentProject;
+  await api('DELETE', `/projects/${encodeURIComponent(p.id)}/links/${lid}`);
+  p.links = p.links.filter(l => l.id !== lid);
+  renderLinks(p);
+  toast('Ссылка удалена');
+}
+
+async function openLink(encodedUrl) {
+  const url = decodeURIComponent(encodedUrl);
+  await api('POST', '/open-browser', { url });
+  toast('Открываю в браузере…');
+}
+
+// ── Image Generator ────────────────────────────────────────────
+function setStyle(btn, style) {
+  document.querySelectorAll('#tab-images .img-option-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.imgStyle = style;
+}
+function setGlobalStyle(btn, style) {
+  document.querySelectorAll('#view-images .img-option-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.globalImgStyle = style;
+}
+
+function buildImageUrl(prompt, style) {
+  const full = [prompt, style].filter(Boolean).join(', ');
+  const seed = Math.floor(Math.random() * 9999999);
+  return { url: `https://image.pollinations.ai/prompt/${encodeURIComponent(full)}?width=768&height=768&nologo=true&seed=${seed}`, seed, prompt: full };
+}
+
+function generateImage() {
+  const prompt = document.getElementById('img-prompt').value.trim();
+  if (!prompt) return;
+  const pid = state.currentProject?.id || '_global';
+  if (!state.projectImages[pid]) state.projectImages[pid] = [];
+  const { url, seed, prompt: full } = buildImageUrl(prompt, state.imgStyle);
+  state.projectImages[pid].unshift({ prompt: full, url, seed, ts: Date.now() });
+  renderProjectImages(pid);
+  toast('Генерирую картинку…');
+}
+
+function generateGlobalImage() {
+  const prompt = document.getElementById('global-img-prompt').value.trim();
+  if (!prompt) return;
+  const { url, seed, prompt: full } = buildImageUrl(prompt, state.globalImgStyle);
+  state.globalImages.unshift({ prompt: full, url, seed, ts: Date.now() });
+  renderGlobalImages();
+  toast('Генерирую картинку…');
+}
+
+function renderProjectImages(pid) {
+  const grid = document.getElementById('images-grid');
+  const imgs = state.projectImages[pid] || [];
+  if (!imgs.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">🎨</div><h3>Нет картинок</h3><p>Введи промпт и нажми «Создать»</p></div>`;
+    return;
+  }
+  grid.innerHTML = imgs.map((img, i) => imgCard(img, i)).join('');
+}
+
+function renderGlobalImages() {
+  const grid = document.getElementById('global-images-grid');
+  if (!state.globalImages.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">🎨</div><h3>Введи промпт выше</h3><p>Картинки появятся здесь</p></div>`;
+    return;
+  }
+  grid.innerHTML = state.globalImages.map((img, i) => imgCard(img, i)).join('');
+}
+
+function imgCard(img, i) {
+  return `
+  <div class="img-card anim" style="animation-delay:${i*0.05}s">
+    <img src="${img.url}" loading="lazy" onerror="this.parentElement.querySelector('.img-card-footer').insertAdjacentHTML('afterbegin','<div style=\\'color:var(--red);font-size:11px;margin-bottom:6px\\'>Ошибка загрузки</div>')" alt="${img.prompt}">
+    <div class="img-card-footer">
+      <div class="img-card-prompt" title="${img.prompt}">${img.prompt}</div>
+      <div class="img-card-btns">
+        <button class="link-btn" style="flex:1" onclick="window.open('${img.url}','_blank')">↗ Открыть</button>
+        <button class="link-btn" style="flex:1" onclick="downloadImg('${img.url}','${img.seed}')">⬇ Скачать</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function downloadImg(url, seed) {
+  const a = document.createElement('a');
+  a.href = url; a.download = `fc-image-${seed}.png`;
+  a.target = '_blank'; a.click();
+}
+
+// ── Files ──────────────────────────────────────────────────────
+function renderFiles(p) {
+  const list = document.getElementById('files-list');
+  if (!p.files?.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">📂</div><h3>Папка пустая</h3></div>`;
+    return;
+  }
+  list.innerHTML = p.files.map(f => `
+    <div class="file-item">
+      <span class="file-icon">${fileIcon(f)}</span>
+      <span>${f}</span>
+    </div>`).join('');
+}
+
+// ── Notes ──────────────────────────────────────────────────────
+async function saveNotes() {
+  const notes = document.getElementById('notes-area').value;
+  const p = state.currentProject;
+  await api('POST', `/projects/${encodeURIComponent(p.id)}/notes`, { notes });
+  p.notes = notes;
+  toast('Заметки сохранены', 'success');
+}
+
+// ── Git ────────────────────────────────────────────────────────
+function renderGit(p) {
+  const g = p.git;
+  const panel = document.getElementById('git-panel');
+  if (!g?.branch) {
+    panel.innerHTML = `<div class="git-row"><span class="git-badge nogit">Git не инициализирован</span></div>
+      <div style="margin-top:12px"><button class="btn-secondary" onclick="initGit()">⎇ git init</button></div>`;
+    return;
+  }
+  panel.innerHTML = `
+    <div class="git-row"><span class="git-label">Ветка</span><span class="git-value">⎇ ${g.branch}</span></div>
+    <div class="git-row"><span class="git-label">Статус</span><span class="git-badge ${g.dirty ? 'dirty' : 'clean'}">${g.dirty ? 'Есть изменения' : 'Чисто'}</span></div>
+    ${g.lastCommitWhen ? `<div class="git-row"><span class="git-label">Коммит</span><span class="git-value" style="font-size:12px">${g.lastCommitMsg}</span></div>` : ''}
+    ${g.lastCommitWhen ? `<div class="git-row"><span class="git-label">Когда</span><span style="font-size:12px;color:var(--dim)">${g.lastCommitWhen}</span></div>` : ''}`;
+}
+
+// ── Actions ────────────────────────────────────────────────────
+async function openClaude() {
+  const p = state.currentProject;
+  if (!p) return;
+  await api('POST', '/open-claude', { projectPath: p.path });
+  toast('Открываю Claude в проекте…', 'success');
+}
+async function openFinder() {
+  await api('POST', '/open-finder', { projectPath: state.currentProject?.path });
+}
+async function openVSCode() {
+  await api('POST', '/open-vscode', { projectPath: state.currentProject?.path });
+}
+async function claudeProject(path) {
+  await api('POST', '/open-claude', { projectPath: path });
+  toast('✦ Открываю Claude…', 'success');
+}
+async function finderProject(path) {
+  await api('POST', '/open-finder', { projectPath: path });
+}
+
+// ── Modal ──────────────────────────────────────────────────────
+function openModal() {
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('proj-name').value = '';
+  document.getElementById('proj-name').focus();
+  // Render emoji picker
+  const picker = document.getElementById('emoji-picker');
+  picker.innerHTML = EMOJIS.map((e, i) => `
+    <div class="emoji-opt ${i===0?'active':''}" onclick="selectEmoji(this,'${e}')">${e}</div>`).join('');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function selectEmoji(el, emoji) {
+  document.querySelectorAll('.emoji-opt').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+}
+
+async function createProject() {
+  const raw = document.getElementById('proj-name').value.trim();
+  if (!raw) return toast('Введи название', 'error');
+  const name = slugify(raw);
+  const displayName = raw;
+  const emoji = document.querySelector('.emoji-opt.active')?.textContent || '📁';
+  const res = await api('POST', '/projects', { name, displayName, emoji });
+  if (res.error) return toast(res.error, 'error');
+  closeModal();
+  toast(`Проект «${displayName}» создан!`, 'success');
+  await loadProjects();
+  openProject(name);
+}
+
+// ── Keyboard ───────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if ((e.metaKey || e.ctrlKey) && e.key === 'n') { e.preventDefault(); openModal(); }
+});
+
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+
+// ── Init ───────────────────────────────────────────────────────
+loadProjects();
+setInterval(loadProjects, 30000); // refresh every 30s
+</script>
+</body>
+</html>
