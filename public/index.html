@@ -19,6 +19,9 @@
   --red:      #f87171;
   --blue:     #60a5fa;
   --purple:   #a78bfa;
+  --status-active:  #4ade80;
+  --status-planned: #60a5fa;
+  --status-done:    #a78bfa;
   --radius:   16px;
   --radius-sm:8px;
   --shadow:   0 8px 32px rgba(0,0,0,0.5);
@@ -445,6 +448,76 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 
 .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .section-title { font-size: 15px; font-weight: 600; }
+
+/* ── Status badges ── */
+.status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  transition: opacity 0.15s; user-select: none;
+}
+.status-pill:hover { opacity: 0.8; }
+.status-pill.active  { background: rgba(74,222,128,0.12);  border: 1px solid rgba(74,222,128,0.3);  color: var(--status-active); }
+.status-pill.planned { background: rgba(96,165,250,0.12);  border: 1px solid rgba(96,165,250,0.3);  color: var(--status-planned); }
+.status-pill.done    { background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.3); color: var(--status-done); }
+.status-pill.none    { background: rgba(107,107,128,0.1);  border: 1px solid var(--border);         color: var(--dim); }
+
+/* ── Status dropdown ── */
+.status-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); padding: 6px; min-width: 160px;
+  box-shadow: var(--shadow);
+}
+.status-menu-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 6px; cursor: pointer;
+  font-size: 12px; transition: background 0.1s;
+}
+.status-menu-item:hover { background: rgba(255,255,255,0.06); }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.status-dot.active  { background: var(--status-active); }
+.status-dot.planned { background: var(--status-planned); }
+.status-dot.done    { background: var(--status-done); }
+.status-dot.none    { background: var(--dim); }
+
+/* ── Nav tabs (top) ── */
+.nav-tabs {
+  display: flex; gap: 4px; margin-bottom: 24px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 5px;
+  width: fit-content;
+}
+.nav-tab {
+  padding: 8px 18px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500; color: var(--dim);
+  cursor: pointer; transition: all 0.15s; user-select: none;
+  display: flex; align-items: center; gap: 7px;
+}
+.nav-tab:hover { color: var(--white); }
+.nav-tab.active { background: var(--bg3); color: var(--white); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.nav-tab .nav-count {
+  background: rgba(255,255,255,0.08); border-radius: 10px;
+  padding: 1px 7px; font-size: 11px; color: var(--dim);
+}
+.nav-tab.active .nav-count { background: rgba(245,166,35,0.15); color: var(--orange); }
+
+/* ── Empty state per-section ── */
+.section-empty {
+  grid-column: 1/-1; padding: 48px 20px; text-align: center;
+}
+.section-empty .icon { font-size: 40px; margin-bottom: 12px; }
+.section-empty h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.section-empty p { font-size: 13px; color: var(--dim); max-width: 260px; margin: 0 auto 16px; }
+
+/* ── Card status stripe ── */
+.card-status-stripe {
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.card-status-stripe.active  { background: linear-gradient(90deg, var(--status-active), transparent); }
+.card-status-stripe.planned { background: linear-gradient(90deg, var(--status-planned), transparent); }
+.card-status-stripe.done    { background: linear-gradient(90deg, var(--status-done), transparent); }
 </style>
 </head>
 <body>
@@ -458,8 +531,14 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     </div>
 
     <div class="sidebar-section">Навигация</div>
-    <div class="sidebar-item active" id="nav-home" onclick="showHome()">
+    <div class="sidebar-item active" id="nav-home" onclick="showHome('all')">
       <span class="icon">⊞</span> Все проекты
+    </div>
+    <div class="sidebar-item" id="nav-active" onclick="showHome('active')">
+      <span class="icon" style="color:var(--status-active)">●</span> В работе
+    </div>
+    <div class="sidebar-item" id="nav-planned" onclick="showHome('planned')">
+      <span class="icon" style="color:var(--status-planned)">◎</span> В планах
     </div>
     <div class="sidebar-item" id="nav-images" onclick="showGlobalImages()">
       <span class="icon">🎨</span> Генератор картинок
@@ -480,7 +559,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
     <!-- Home view -->
     <div id="view-home">
       <div class="topbar anim">
-        <h1>Мои <span>Проекты</span></h1>
+        <h1 id="home-title">Мои <span>Проекты</span></h1>
         <div class="topbar-right">
           <div class="badge-live">Live</div>
           <div class="search-box">
@@ -489,6 +568,23 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
           </div>
         </div>
       </div>
+
+      <!-- Nav tabs -->
+      <div class="nav-tabs anim">
+        <div class="nav-tab active" id="ntab-all"     onclick="switchView('all')">
+          ⊞ Все проекты <span class="nav-count" id="cnt-all">0</span>
+        </div>
+        <div class="nav-tab" id="ntab-active"  onclick="switchView('active')">
+          <span style="color:var(--status-active)">●</span> В работе <span class="nav-count" id="cnt-active">0</span>
+        </div>
+        <div class="nav-tab" id="ntab-planned" onclick="switchView('planned')">
+          <span style="color:var(--status-planned)">◎</span> В планах <span class="nav-count" id="cnt-planned">0</span>
+        </div>
+        <div class="nav-tab" id="ntab-done"    onclick="switchView('done')">
+          <span style="color:var(--status-done)">✓</span> Завершённые <span class="nav-count" id="cnt-done">0</span>
+        </div>
+      </div>
+
       <div class="projects-grid anim anim-1" id="projects-grid"></div>
     </div>
 
@@ -627,11 +723,19 @@ const EMOJIS = ['📁','🚀','⚡','🔥','💎','🎯','🛠','🌟','🎨','�
 let state = {
   projects: [],
   currentProject: null,
+  currentView: 'all',   // 'all' | 'active' | 'planned' | 'done'
   imgStyle: '',
   globalImgStyle: '',
-  projectImages: {},   // projectId -> [{prompt, url, seed}]
+  projectImages: {},
   globalImages: [],
   currentTab: 'links',
+};
+
+const STATUS_META = {
+  active:  { label: '● В работе',    dot: 'active',  color: 'var(--status-active)' },
+  planned: { label: '◎ В планах',    dot: 'planned', color: 'var(--status-planned)' },
+  done:    { label: '✓ Завершён',    dot: 'done',    color: 'var(--status-done)' },
+  none:    { label: '— Без статуса', dot: 'none',    color: 'var(--dim)' },
 };
 
 // ── Utils ──────────────────────────────────────────────────────
@@ -683,32 +787,70 @@ function renderSidebar() {
     </div>`).join('');
 }
 
+// ── Update counters ────────────────────────────────────────────
+function updateCounts() {
+  const p = state.projects;
+  document.getElementById('cnt-all').textContent     = p.length;
+  document.getElementById('cnt-active').textContent  = p.filter(x => x.status === 'active').length;
+  document.getElementById('cnt-planned').textContent = p.filter(x => x.status === 'planned').length;
+  document.getElementById('cnt-done').textContent    = p.filter(x => x.status === 'done').length;
+}
+
 // ── Home grid ──────────────────────────────────────────────────
-function renderGrid(list) {
-  const projects = list || state.projects;
+function renderGrid(overrideList) {
+  let projects = overrideList || state.projects;
+
+  // Filter by current view
+  if (!overrideList) {
+    if (state.currentView === 'active')  projects = projects.filter(p => p.status === 'active');
+    if (state.currentView === 'planned') projects = projects.filter(p => p.status === 'planned');
+    if (state.currentView === 'done')    projects = projects.filter(p => p.status === 'done');
+  }
+
+  updateCounts();
   const grid = document.getElementById('projects-grid');
+
+  const emptyMessages = {
+    all:     { icon: '🚀', h: 'Нет проектов',       p: 'Создай первый проект кнопкой ниже' },
+    active:  { icon: '⚡', h: 'Ничего в работе',    p: 'Отметь проект как «В работе» чтобы он появился здесь' },
+    planned: { icon: '🗓', h: 'Нет запланированных', p: 'Добавь проекты которые планируешь начать' },
+    done:    { icon: '🏆', h: 'Нет завершённых',    p: 'Завершённые проекты будут отображаться здесь' },
+  };
+
   if (!projects.length) {
-    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">
-      <div class="empty-icon">🚀</div>
-      <h3>Нет проектов</h3>
-      <p>Создай первый проект и он появится здесь</p>
+    const m = emptyMessages[state.currentView] || emptyMessages.all;
+    grid.innerHTML = `<div class="section-empty">
+      <div class="icon">${m.icon}</div>
+      <h3>${m.h}</h3>
+      <p>${m.p}</p>
+      ${state.currentView === 'all' ? `<button class="btn-primary" onclick="openModal()" style="margin:0 auto">＋ Создать проект</button>` : ''}
     </div>`;
     return;
   }
+
   grid.innerHTML = projects.map((p, i) => {
-    const gitDot = p.git?.branch
-      ? (p.git.dirty ? 'git-dirty' : 'git-clean')
-      : 'git-none';
-    const gitLabel = p.git?.branch
-      ? (p.git.dirty ? '● Изменения' : '✓ Чисто')
-      : 'No git';
+    const status = p.status || 'none';
+    const sm = STATUS_META[status];
+    const gitDot   = p.git?.branch ? (p.git.dirty ? 'git-dirty' : 'git-clean') : 'git-none';
+    const gitLabel = p.git?.branch ? (p.git.dirty ? '● Изменения' : '✓ Чисто') : 'No git';
     return `
-    <div class="project-card anim" style="animation-delay:${i*0.04}s" onclick="openProject('${p.id}')">
+    <div class="project-card anim" style="animation-delay:${i*0.04}s;position:relative" onclick="openProject('${p.id}')">
+      ${status !== 'none' ? `<div class="card-status-stripe ${status}"></div>` : ''}
       <div class="card-header">
         <div class="card-emoji">${p.emoji || '📁'}</div>
-        <div class="card-git">
-          <div class="git-dot ${gitDot}"></div>
-          <span style="color:var(--dim);font-size:11px">${gitLabel}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="card-git"><div class="git-dot ${gitDot}"></div><span style="color:var(--dim);font-size:11px">${gitLabel}</span></div>
+          <div style="position:relative" onclick="event.stopPropagation()">
+            <div class="status-pill ${status}" onclick="toggleStatusMenu(event,'${p.id}')">
+              ${sm.label}
+            </div>
+            <div class="status-menu" id="smenu-${p.id}" style="display:none">
+              ${Object.entries(STATUS_META).map(([k,v]) => `
+                <div class="status-menu-item" onclick="setProjectStatus('${p.id}','${k}')">
+                  <div class="status-dot ${k}"></div> ${v.label}
+                </div>`).join('')}
+            </div>
+          </div>
         </div>
       </div>
       <div class="card-name">${p.name}</div>
@@ -729,19 +871,61 @@ function renderGrid(list) {
 
 function filterProjects() {
   const q = document.getElementById('search-input').value.toLowerCase();
-  renderGrid(q ? state.projects.filter(p => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)) : state.projects);
+  if (q) renderGrid(state.projects.filter(p => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)));
+  else renderGrid();
+}
+
+// ── Status ─────────────────────────────────────────────────────
+function toggleStatusMenu(e, id) {
+  e.stopPropagation();
+  // Close all open menus first
+  document.querySelectorAll('.status-menu').forEach(m => {
+    if (m.id !== `smenu-${id}`) m.style.display = 'none';
+  });
+  const menu = document.getElementById(`smenu-${id}`);
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+// Close menus on outside click
+document.addEventListener('click', () => {
+  document.querySelectorAll('.status-menu').forEach(m => m.style.display = 'none');
+});
+
+async function setProjectStatus(id, status) {
+  // Update locally
+  const p = state.projects.find(x => x.id === id);
+  if (p) p.status = status;
+  // Persist via API
+  await api('POST', `/projects/${encodeURIComponent(id)}/status`, { status });
+  renderGrid();
+  const sm = STATUS_META[status];
+  toast(`Статус → ${sm.label}`, 'success');
 }
 
 // ── Views ──────────────────────────────────────────────────────
-function showHome() {
+function showHome(view) {
+  if (view) state.currentView = view;
   document.getElementById('view-home').style.display = '';
   document.getElementById('view-detail').style.display = 'none';
   document.getElementById('view-images').style.display = 'none';
-  document.getElementById('nav-home').classList.add('active');
+  document.getElementById('nav-home').classList.toggle('active', state.currentView === 'all');
+  document.getElementById('nav-active').classList.toggle('active', state.currentView === 'active');
+  document.getElementById('nav-planned').classList.toggle('active', state.currentView === 'planned');
   document.getElementById('nav-images').classList.remove('active');
   state.currentProject = null;
   renderSidebar();
   loadProjects();
+}
+
+function switchView(view) {
+  state.currentView = view;
+  ['all','active','planned','done'].forEach(v => {
+    document.getElementById(`ntab-${v}`)?.classList.toggle('active', v === view);
+  });
+  document.getElementById('nav-home').classList.toggle('active', view === 'all');
+  document.getElementById('nav-active').classList.toggle('active', view === 'active');
+  document.getElementById('nav-planned').classList.toggle('active', view === 'planned');
+  renderGrid();
 }
 
 function showGlobalImages() {

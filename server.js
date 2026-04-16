@@ -198,7 +198,8 @@ const server = http.createServer(async (req, res) => {
         id: name, name: meta.displayName || name, path: dir,
         files: countFiles(dir), git,
         links: meta.links || [], notes: meta.notes || '',
-        created: meta.created || null, emoji: meta.emoji || '📁', color: meta.color || null,
+        created: meta.created || null, emoji: meta.emoji || '📁',
+        color: meta.color || null, status: meta.status || 'none',
       }));
     })));
     return json(res, 200, result);
@@ -251,6 +252,17 @@ const server = http.createServer(async (req, res) => {
       data.projects[id].links = (data.projects[id].links || []).filter(l => l.id !== parts[4]);
       saveData(data);
     }
+    return json(res, 200, { ok: true });
+  }
+
+  // POST /api/projects/:id/status
+  if (method === 'POST' && parts[1] === 'projects' && parts[3] === 'status') {
+    const id = decodeURIComponent(parts[2]);
+    const { status } = await readBody(req);
+    const data = loadData();
+    if (!data.projects[id]) data.projects[id] = { links: [], notes: '' };
+    data.projects[id].status = status || 'none';
+    saveData(data);
     return json(res, 200, { ok: true });
   }
 
