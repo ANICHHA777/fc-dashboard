@@ -404,6 +404,38 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
 .toast.success { border-color: rgba(74,222,128,0.3); color: var(--green); }
 .toast.error   { border-color: rgba(248,113,113,0.3); color: var(--red); }
 
+/* ── GitHub ── */
+.gh-status-row { display:flex; align-items:center; gap:10px; margin-bottom:20px; }
+.gh-badge { display:flex; align-items:center; gap:6px; padding:6px 12px; border-radius:20px; font-size:12px; font-weight:600; }
+.gh-badge.connected { background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.2); color:var(--green); }
+.gh-badge.disconnected { background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.2); color:var(--red); }
+.gh-repo-card {
+  background:var(--bg3); border:1px solid var(--border2);
+  border-radius:var(--radius); padding:18px 20px;
+  display:flex; align-items:center; gap:14px; margin-bottom:16px;
+}
+.gh-repo-card .gh-icon { font-size:28px; }
+.gh-repo-card .gh-info { flex:1; }
+.gh-repo-card .gh-name { font-size:15px; font-weight:600; color:var(--orange); }
+.gh-repo-card .gh-url  { font-size:12px; color:var(--dim); margin-top:3px; }
+.gh-repo-card .gh-btns { display:flex; gap:8px; }
+.gh-create-box {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--radius); padding:20px;
+}
+.gh-create-box h3 { font-size:14px; font-weight:600; margin-bottom:14px; }
+.gh-field { margin-bottom:12px; }
+.gh-field label { display:block; font-size:11px; color:var(--dim); margin-bottom:5px; font-weight:500; }
+.gh-toggle-row { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:12px; }
+.gh-toggle-label { font-size:13px; }
+.toggle { position:relative; width:40px; height:22px; }
+.toggle input { opacity:0; width:0; height:0; }
+.slider { position:absolute; inset:0; background:var(--bg3); border:1px solid var(--border); border-radius:11px; cursor:pointer; transition:.2s; }
+.slider:before { content:''; position:absolute; width:16px; height:16px; left:2px; bottom:2px; background:var(--dim); border-radius:50%; transition:.2s; }
+.toggle input:checked + .slider { background:rgba(245,166,35,0.2); border-color:var(--orange); }
+.toggle input:checked + .slider:before { background:var(--orange); transform:translateX(18px); }
+.gh-push-section { margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
+
 /* ── Animations ── */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .anim { animation: fadeIn 0.25s ease both; }
@@ -482,6 +514,7 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
         <div class="tab" onclick="switchTab('files')">📂 Файлы</div>
         <div class="tab" onclick="switchTab('notes')">📝 Заметки</div>
         <div class="tab" onclick="switchTab('git')">⎇ Git</div>
+        <div class="tab" onclick="switchTab('github')">⬡ GitHub</div>
       </div>
 
       <!-- Links tab -->
@@ -531,6 +564,11 @@ html, body { height: 100%; background: var(--bg); color: var(--white); font-fami
       <!-- Git tab -->
       <div class="tab-content" id="tab-git">
         <div class="git-panel" id="git-panel"></div>
+      </div>
+
+      <!-- GitHub tab -->
+      <div class="tab-content" id="tab-github">
+        <div id="github-content"></div>
       </div>
     </div>
 
@@ -736,7 +774,7 @@ async function openProject(id) {
 
 function switchTab(tab) {
   state.currentTab = tab;
-  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === ['links','images','files','notes','git'].indexOf(tab)));
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === ['links','images','files','notes','git','github'].indexOf(tab)));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.add('active');
 
@@ -747,6 +785,7 @@ function switchTab(tab) {
   if (tab === 'files')  renderFiles(p);
   if (tab === 'notes')  { document.getElementById('notes-area').value = p.notes || ''; }
   if (tab === 'git')    renderGit(p);
+  if (tab === 'github') renderGithub(p);
 }
 
 // ── Links ──────────────────────────────────────────────────────
@@ -973,6 +1012,135 @@ document.addEventListener('keydown', e => {
 document.getElementById('modal').addEventListener('click', e => {
   if (e.target === document.getElementById('modal')) closeModal();
 });
+
+// ── GitHub ─────────────────────────────────────────────────────
+let ghUser = null;
+
+async function loadGhStatus() {
+  try {
+    const r = await api('GET', '/github/status');
+    ghUser = r.login || null;
+    return r;
+  } catch { return { ok: false }; }
+}
+
+async function renderGithub(p) {
+  const el = document.getElementById('github-content');
+  el.innerHTML = `<div style="color:var(--dim);font-size:13px;padding:20px 0">Проверяю GitHub…</div>`;
+
+  const [ghStatus, remoteInfo] = await Promise.all([
+    loadGhStatus(),
+    api('GET', `/github/remote?path=${encodeURIComponent(p.path)}`),
+  ]);
+
+  const { ok: ghOk, login } = ghStatus;
+  const { remote, hasGit } = remoteInfo;
+
+  let html = `<div class="gh-status-row">`;
+  if (ghOk) {
+    html += `<div class="gh-badge connected">⬡ GitHub: @${login}</div>`;
+  } else {
+    html += `<div class="gh-badge disconnected">✕ GitHub CLI не авторизован</div>
+      <button class="btn-secondary" onclick="openLink('${encodeURIComponent('https://cli.github.com/')}')">Установить gh →</button>`;
+  }
+  html += `</div>`;
+
+  // Already has remote
+  if (remote) {
+    const repoName = remote.replace(/.*github\.com[/:]/, '').replace(/\.git$/, '');
+    const webUrl = `https://github.com/${repoName}`;
+    html += `
+      <div class="gh-repo-card">
+        <div class="gh-icon">⬡</div>
+        <div class="gh-info">
+          <div class="gh-name">${repoName}</div>
+          <div class="gh-url">${remote}</div>
+        </div>
+        <div class="gh-btns">
+          <button class="btn-secondary" onclick="openLink('${encodeURIComponent(webUrl)}')">↗ Открыть</button>
+          <button class="btn-primary" onclick="pushToGithub('${encodeURIComponent(p.path)}')">↑ Push</button>
+        </div>
+      </div>
+      <div class="gh-push-section">
+        <div class="section-title" style="margin-bottom:10px">Быстрый push</div>
+        <div style="display:flex;gap:8px">
+          <input class="input-field" id="commit-msg" placeholder="Сообщение коммита…" value="Update from FC Dashboard">
+          <button class="btn-primary" onclick="pushWithMsg('${encodeURIComponent(p.path)}')">↑ Commit & Push</button>
+        </div>
+      </div>`;
+  } else if (ghOk) {
+    // No remote — show create form
+    const slug = p.id.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+    html += `
+      <div class="gh-create-box">
+        <h3>⬡ Создать GitHub репозиторий</h3>
+        <div class="gh-field">
+          <label>Название репозитория</label>
+          <input class="input-field" id="gh-repo-name" value="${slug}" placeholder="my-project">
+        </div>
+        <div class="gh-field">
+          <label>Описание (опционально)</label>
+          <input class="input-field" id="gh-repo-desc" placeholder="Краткое описание проекта…">
+        </div>
+        <div class="gh-toggle-row">
+          <span class="gh-toggle-label">🔒 Приватный репозиторий</span>
+          <label class="toggle"><input type="checkbox" id="gh-private"><span class="slider"></span></label>
+        </div>
+        ${!hasGit ? `<div style="font-size:12px;color:var(--orange);margin-bottom:12px">⚠️ git init будет выполнен автоматически</div>` : ''}
+        <button class="btn-primary" style="width:100%;justify-content:center" onclick="createGithubRepo('${encodeURIComponent(p.path)}','${p.name}')">
+          ⬡ Создать и Push на GitHub
+        </button>
+      </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+async function createGithubRepo(encodedPath, projectName) {
+  const projectPath = decodeURIComponent(encodedPath);
+  const repoName = document.getElementById('gh-repo-name').value.trim();
+  const description = document.getElementById('gh-repo-desc').value.trim();
+  const isPrivate = document.getElementById('gh-private').checked;
+
+  if (!repoName) return toast('Введи название репозитория', 'error');
+
+  const btn = document.querySelector('#github-content .btn-primary');
+  const origText = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Создаю…';
+  btn.disabled = true;
+
+  try {
+    const r = await api('POST', '/github/create', { projectPath, repoName, description, isPrivate });
+    if (r.error) throw new Error(r.error);
+    toast('✔ Репозиторий создан и запушен!', 'success');
+    // Open in browser
+    if (r.url) { setTimeout(() => openLink(encodeURIComponent(r.url.trim())), 500); }
+    // Refresh tab
+    setTimeout(() => renderGithub(state.currentProject), 800);
+  } catch(e) {
+    toast('Ошибка: ' + e.message, 'error');
+    btn.innerHTML = origText;
+    btn.disabled = false;
+  }
+}
+
+async function pushToGithub(encodedPath) {
+  const projectPath = decodeURIComponent(encodedPath);
+  toast('Пушу на GitHub…');
+  const r = await api('POST', '/github/push', { projectPath });
+  if (r.error) toast('Ошибка: ' + r.error, 'error');
+  else toast('↑ Push выполнен!', 'success');
+}
+
+async function pushWithMsg(encodedPath) {
+  const projectPath = decodeURIComponent(encodedPath);
+  const msg = document.getElementById('commit-msg')?.value || 'Update from FC Dashboard';
+  toast('Commit & Push…');
+  try {
+    await api('POST', '/github/push', { projectPath, message: msg });
+    toast('↑ Запушено!', 'success');
+  } catch(e) { toast('Ошибка push', 'error'); }
+}
 
 // ── Init ───────────────────────────────────────────────────────
 loadProjects();

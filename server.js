@@ -5,7 +5,7 @@ const fs       = require('fs');
 const path     = require('path');
 const os       = require('os');
 const crypto   = require('crypto');
-const { exec } = require('child_process');
+const { exec, execSync } = require('child_process');
 
 // ── Config ────────────────────────────────────────────────────
 const PORT      = process.env.PORT      || 19999;
@@ -81,6 +81,60 @@ function readBody(req) {
 function openBrowser(url)   { exec(`open "${url}"`); }
 function openFinder(dir)    { exec(`open "${dir}"`); }
 function openVSCode(dir)    { exec(`code "${dir}" 2>/dev/null || open "${dir}"`); }
+
+// ── GitHub helpers ────────────────────────────────────────────
+function ghExec(cmd) {
+  // find gh binary
+  const ghPaths = ['/opt/homebrew/bin/gh', '/usr/local/bin/gh', 'gh'];
+  let ghBin = 'gh';
+  for (const p of ghPaths) { try { if (fs.existsSync(p)) { ghBin = p; break; } } catch {} }
+  return new Promise((resolve, reject) => {
+    exec(`${ghBin} ${cmd}`, { env: { ...process.env, HOME: os.homedir() } }, (err, stdout, stderr) => {
+      if (err) reject(new Error(stderr || err.message));
+      else resolve(stdout.trim());
+    });
+  });
+}
+
+async function getGhUser() {
+  try { return await ghExec('api user --jq .login'); }
+  catch { return null; }
+}
+
+async function getRemoteUrl(dir) {
+  return new Promise(resolve => {
+    exec(`git -C "${dir}" remote get-url origin 2>/dev/null`, (_, out) => resolve((out || '').trim() || null));
+  });
+}
+
+async function createGithubRepo(dir, repoName, description, isPrivate) {
+  const visibility = isPrivate ? '--private' : '--public';
+  const desc = description ? `--description "${description.replace(/"/g, '\\"')}"` : '';
+
+  // 1. git init if needed
+  const hasGit = fs.existsSync(path.join(dir, '.git'));
+  if (!hasGit) {
+    await new Promise((res, rej) => exec(`git -C "${dir}" init && git -C "${dir}" checkout -b main`, e => e ? rej(e) : res()));
+  }
+
+  // 2. Check existing remote
+  const existingRemote = await getRemoteUrl(dir);
+  if (existingRemote) throw new Error(`Remote already set: ${existingRemote}`);
+
+  // 3. Create repo on GitHub
+  const url = await ghExec(`repo create ${repoName} ${visibility} ${desc} --source "${dir}" --push`);
+
+  // 4. If no commits yet, make initial commit then push
+  const hasCommits = await new Promise(res => exec(`git -C "${dir}" log --oneline -1 2>/dev/null`, (_, out) => res(!!(out && out.trim()))));
+  if (!hasCommits) {
+    await new Promise((res, rej) => exec(
+      `git -C "${dir}" add . && git -C "${dir}" commit -m "Initial commit" && git -C "${dir}" push -u origin main`,
+      e => e ? rej(e) : res()
+    ));
+  }
+
+  return url || `https://github.com/${await getGhUser()}/${repoName}`;
+}
 
 function openTerminalWithClaude(projectPath) {
   const safePath = projectPath.replace(/'/g, "'\\''");
@@ -237,6 +291,51 @@ const server = http.createServer(async (req, res) => {
     const { projectPath } = await readBody(req);
     if (projectPath) openVSCode(projectPath);
     return json(res, 200, { ok: true });
+  }
+
+  // GET /api/github/status
+  if (method === 'GET' && parts[1] === 'github' && parts[2] === 'status') {
+    try {
+      const login = await getGhUser();
+      return json(res, 200, { ok: !!login, login });
+    } catch { return json(res, 200, { ok: false, login: null }); }
+  }
+
+  // GET /api/github/remote?path=...
+  if (method === 'GET' && parts[1] === 'github' && parts[2] === 'remote') {
+    const dir = url.searchParams.get('path');
+    if (!dir) return json(res, 400, { error: 'path required' });
+    const remote = await getRemoteUrl(dir);
+    const hasGit = fs.existsSync(path.join(dir, '.git'));
+    return json(res, 200, { remote, hasGit });
+  }
+
+  // POST /api/github/create
+  if (method === 'POST' && parts[1] === 'github' && parts[2] === 'create') {
+    const { projectPath, repoName, description, isPrivate } = await readBody(req);
+    if (!projectPath || !repoName) return json(res, 400, { error: 'projectPath and repoName required' });
+    try {
+      const repoUrl = await createGithubRepo(projectPath, repoName, description, isPrivate);
+      return json(res, 200, { ok: true, url: repoUrl });
+    } catch(e) {
+      return json(res, 500, { error: e.message });
+    }
+  }
+
+  // POST /api/github/push
+  if (method === 'POST' && parts[1] === 'github' && parts[2] === 'push') {
+    const { projectPath, message } = await readBody(req);
+    if (!projectPath) return json(res, 400, { error: 'projectPath required' });
+    const msg = (message || 'Update from FC Dashboard').replace(/"/g, '\\"');
+    try {
+      await new Promise((res, rej) => exec(
+        `git -C "${projectPath}" add . && git -C "${projectPath}" commit -m "${msg}" --allow-empty && git -C "${projectPath}" push`,
+        e => e ? rej(e) : res()
+      ));
+      return json(res, 200, { ok: true });
+    } catch(e) {
+      return json(res, 500, { error: e.message });
+    }
   }
 
   json(res, 404, { error: 'not found' });
